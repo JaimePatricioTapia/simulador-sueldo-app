@@ -32,8 +32,11 @@ st.html("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ── Reset global ────────────────────────────────────────────── */
-html, body, [class*="st-"] {
+html, body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+p, h1, h2, h3, h4, h5, h6, span, div, input, button, select, option, label {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* ── Ocultar el hamburger menu y footer ──────────────────────── */
@@ -309,10 +312,27 @@ MESES = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Inicialización de Session State
+# Inicialización de Session State y Callbacks
 # ═══════════════════════════════════════════════════════════════════════════════
 if "historial" not in st.session_state:
     st.session_state.historial = []
+
+if "monto_final" not in st.session_state:
+    st.session_state.monto_final = 0
+if "recaudacion_input" not in st.session_state:
+    st.session_state.recaudacion_input = 0
+if "slider_recaudacion" not in st.session_state:
+    st.session_state.slider_recaudacion = 0
+
+def sync_from_input():
+    val = st.session_state.recaudacion_input
+    st.session_state.monto_final = val
+    st.session_state.slider_recaudacion = min(val, 80_000_000)
+
+def sync_from_slider():
+    val = st.session_state.slider_recaudacion
+    st.session_state.monto_final = val
+    st.session_state.recaudacion_input = val
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -469,18 +489,20 @@ recaudacion = st.number_input(
     "Monto total en pesos ($)",
     min_value=0,
     max_value=500_000_000,
-    value=0,
     step=100_000,
     format="%d",
     key="recaudacion_input",
+    on_change=sync_from_input,
     help="Ingresa el monto total de recaudación en pesos chilenos"
 )
 
+monto_final = st.session_state.monto_final
+
 # Mostrar formato CLP del monto ingresado
-if recaudacion > 0:
+if monto_final > 0:
     st.html(f"""
     <div style="text-align: center; margin: -0.5rem 0 0.5rem 0;">
-        <span class="info-pill">Recaudación: <span class="value">{formato_clp(recaudacion)}</span></span>
+        <span class="info-pill">Recaudación: <span class="value">{formato_clp(monto_final)}</span></span>
     </div>
     """)
 
@@ -491,16 +513,11 @@ recaudacion_slider = st.slider(
     "Desliza para explorar escenarios",
     min_value=0,
     max_value=max_slider,
-    value=recaudacion,
     step=500_000,
     format="$%d",
-    key="slider_recaudacion"
+    key="slider_recaudacion",
+    on_change=sync_from_slider
 )
-
-# Sincronizar slider → input
-monto_final = recaudacion_slider if recaudacion_slider != recaudacion else recaudacion
-if recaudacion_slider != recaudacion and recaudacion_slider != 0:
-    monto_final = recaudacion_slider
 
 # Validación amigable
 if monto_final > 100_000_000:
