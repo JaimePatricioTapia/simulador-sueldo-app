@@ -1,0 +1,30 @@
+{
+  "afp": {
+    "nombre": "AFP Habitat",
+    "tasa_total_pct": 11.27,
+    "detalle": "10% obligatorio + 1.27% comisión AFP Habitat"
+  },
+  "salud": {
+    "sistema": "Fonasa",
+    "tasa_pct": 7.0
+  },
+  "seguro_cesantia": {
+    "tasa_pct": 0.6,
+    "tipo_contrato": "indefinido"
+  },
+  "impuesto_unico": {
+    "habilitado": true,
+    "nota": "Se calcula según tabla de impuesto único de segunda categoría vigente"
+  },
+  "apv": {
+    "monto_fijo": 15000,
+    "nota": "APV individual tributable — monto fijo mensual"
+  },
+  "asignaciones_no_imponibles": {
+    "internet": 15000
+  },
+  "_metadata": {
+    "fuente": "Datos extraídos de liquidaciones reales enero-marzo 2025 de Carol Matus Morales",
+    "ultima_actualizacion": "2025-03"
+  }
+}

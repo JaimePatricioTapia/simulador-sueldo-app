@@ -1,0 +1,16 @@
+{
+  "tablas": {
+    "DNP": {
+      "nombre_display": "Cartera Deuda DNP",
+      "tramos": [
+        {"desde_uf": 0,    "hasta_uf": 315,  "comision_pct": 1.25, "premio": 0,      "estado": "confirmado"},
+        {"desde_uf": 316,  "hasta_uf": 474,  "comision_pct": 1.45, "premio": 0,      "estado": "confirmado"},
+        {"desde_uf": 475,  "hasta_uf": 631,  "comision_pct": 1.55, "premio": 10000,  "estado": "confirmado"},
+        {"desde_uf": 632,  "hasta_uf": 789,  "comision_pct": 1.80, "premio": 40000,  "estado": "confirmado"},
+        {"desde_uf": 790,  "hasta_uf": 946,  "comision_pct": 2.00, "premio": 60000,  "estado": "confirmado"},
+        {"desde_uf": 947,  "hasta_uf": 1100, "comision_pct": 2.20, "premio": 80000,  "estado": "confirmado"},
+        {"desde_uf": 1101, "hasta_uf": null,  "comision_pct": 2.30, "premio": 100000, "estado": "confirmado"}
+      ]
+    }
+  }
+}
