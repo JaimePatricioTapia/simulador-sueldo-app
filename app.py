@@ -263,11 +263,6 @@ header {visibility: hidden;}
     border-radius: 14px !important;
 }
 
-/* ── Slider más suave ────────────────────────────────────────── */
-[data-testid="stSlider"] > div > div > div > div {
-    background-color: #007AFF !important;
-}
-
 /* ── Título principal ────────────────────────────────────────── */
 .app-title {
     text-align: center;
@@ -320,14 +315,15 @@ if "historial" not in st.session_state:
 if "monto_final" not in st.session_state:
     st.session_state.monto_final = 0
 if "recaudacion_input" not in st.session_state:
-    st.session_state.recaudacion_input = 0
+    st.session_state.recaudacion_input = None
 if "slider_recaudacion" not in st.session_state:
     st.session_state.slider_recaudacion = 0
 
 def sync_from_input():
     val = st.session_state.recaudacion_input
-    st.session_state.monto_final = val
-    st.session_state.slider_recaudacion = min(val, 80_000_000)
+    val_num = val if val is not None else 0
+    st.session_state.monto_final = val_num
+    st.session_state.slider_recaudacion = min(val_num, 80_000_000)
 
 def sync_from_slider():
     val = st.session_state.slider_recaudacion
@@ -493,6 +489,7 @@ recaudacion = st.number_input(
     format="%d",
     key="recaudacion_input",
     on_change=sync_from_input,
+    placeholder="Ej: 6500000",
     help="Ingresa el monto total de recaudación en pesos chilenos"
 )
 
