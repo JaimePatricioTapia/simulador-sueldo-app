@@ -97,6 +97,9 @@ class ResultadoCalculo:
     # Resultado
     sueldo_liquido: int
 
+    # Días especiales
+    dias_vacaciones: int = 0
+
     # Otros descuentos
     anticipo: int = 0
     prestamo: int = 0
@@ -352,10 +355,11 @@ def calcular_sueldo(
     dias_trabajables: int = 20,
     domingos_festivos: int = 4,
     dias_licencia: int = 0,
+    dias_vacaciones: int = 0,
     anticipo: int = 0,
     prestamo: int = 0,
     gratificacion: int = 0,
-    comision_feriado: int = 0,
+    comision_feriado: Optional[int] = None,
     sueldo_base: int = 380000,
     config_descuentos: dict = None
 ) -> ResultadoCalculo:
@@ -378,6 +382,14 @@ def calcular_sueldo(
         domingos_festivos=domingos_festivos,
         dias_licencia=dias_licencia
     )
+
+    # Comisión Feriado / Vacaciones: Si no viene un monto explícito pero sí días de vacaciones,
+    # se calcula automáticamente según remuneración íntegra diaria (Art. 71 Código del Trabajo)
+    if comision_feriado is None:
+        if dias_vacaciones > 0 and dias_trabajables > 0:
+            comision_feriado = round((comision / dias_trabajables) * dias_vacaciones)
+        else:
+            comision_feriado = 0
 
     asig_internet = config_descuentos.get("asignaciones_no_imponibles", {}).get("internet", 0)
 
@@ -412,6 +424,7 @@ def calcular_sueldo(
         dias_trabajables=dias_trabajables,
         domingos_festivos=domingos_festivos,
         dias_licencia=dias_licencia,
+        dias_vacaciones=dias_vacaciones,
         dias_efectivos_trabajables=max(1, dias_trabajables - dias_licencia),
         semana_corrida_monto=semana_corrida,
         
@@ -441,6 +454,7 @@ def calcular_sueldo(
                 dias_trabajables=dias_trabajables,
                 domingos_festivos=domingos_festivos,
                 dias_licencia=dias_licencia,
+                dias_vacaciones=dias_vacaciones,
                 anticipo=anticipo,
                 prestamo=prestamo,
                 gratificacion=gratificacion,

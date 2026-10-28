@@ -462,20 +462,23 @@ lista_tramos = tramos.obtener_tramos(tabla_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PASO 3 — Semana Corrida (días auto-calculados según mes/año)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PASO 3 — Semana Corrida y Vacaciones (días auto-calculados según mes/año)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Calcular días automáticamente según el mes seleccionado
 dias_auto, festivos_auto = calcular_dias_mes(anio_seleccionado, mes_seleccionado)
 
-with st.expander("📅 Días trabajados (Semana Corrida)"):
-    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Los días se calculan automáticamente según el mes. Ajústalos si es necesario.</p>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
+with st.expander("📅 Asistencia, Días Trabajados y Vacaciones"):
+    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Los días hábiles y festivos se calculan automáticamente según el calendario. Solo ajústalos si tomaste vacaciones o licencia.</p>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-        dias_trabajables = st.number_input("Días trabajables", min_value=1, max_value=27, value=dias_auto, help="L-V hábiles (sin feriados)")
+        dias_trabajables = st.number_input("Días hábiles mes", min_value=1, max_value=27, value=dias_auto, help="L-V hábiles (sin feriados)")
     with c2:
         domingos_festivos = st.number_input("Domingos y festivos", min_value=0, max_value=12, value=festivos_auto, help="Domingos + feriados en día hábil")
     with c3:
+        dias_vacaciones = st.number_input("Días de vacaciones", min_value=0, max_value=25, value=0, help="Días hábiles de vacaciones tomados en el mes. El sistema calculará internamente tu comisión por feriado.")
+    with c4:
         dias_licencia = st.number_input("Días de licencia", min_value=0, max_value=31, value=0, help="Restan a los días trabajables")
 
 
@@ -529,14 +532,14 @@ if monto_final > 100_000_000:
     """)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PASO 5 — Otros Descuentos y Haberes Ocasionales (opcional)
+# PASO 5 — Anticipos y Descuentos Particulares (opcional)
 # ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("💵 Anticipos, Préstamos y Haberes Adicionales (opcional)"):
-    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Ingresa anticipos o préstamos (descuentos), y haberes ocasionales como vacaciones o gratificaciones.</p>", unsafe_allow_html=True)
+with st.expander("💵 Anticipos y Descuentos Particulares (opcional)"):
+    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Ingresa anticipos o cuotas que se descuentan directamente de tu sueldo líquido final.</p>", unsafe_allow_html=True)
     c_ant, c_pres = st.columns(2)
     with c_ant:
         anticipo = st.number_input(
-            "Anticipo ($)",
+            "Anticipo recibido ($)",
             min_value=0,
             max_value=5_000_000,
             value=0,
@@ -557,29 +560,33 @@ with st.expander("💵 Anticipos, Préstamos y Haberes Adicionales (opcional)"):
             help="Descuento adicional (ej: cuota préstamo) que reduce el líquido"
         )
 
-    c_fer, c_grat = st.columns(2)
-    with c_fer:
-        comision_feriado = st.number_input(
-            "Comisión Feriado / Vacaciones ($)",
-            min_value=0,
-            max_value=5_000_000,
-            value=0,
-            step=10_000,
-            format="%d",
-            key="feriado_input",
-            help="Remuneración de comisiones durante feriado legal (imponible)"
-        )
-    with c_grat:
-        gratificacion = st.number_input(
-            "Gratificación legal ($)",
-            min_value=0,
-            max_value=5_000_000,
-            value=0,
-            step=10_000,
-            format="%d",
-            key="gratificacion_input",
-            help="Gratificación legal anual o semestral (imponible)"
-        )
+    # Subsección para haberes extraordinarios ocasionales
+    with st.expander("⚙️ Haberes extraordinarios (Gratificación o ajuste manual)", expanded=False):
+        st.markdown("<p style='font-size:0.75rem; color:#86868B;'>En meses normales estos valores son $0. Úsalos solo si recibiste gratificación anual de utilidades o deseas ingresar un valor manual de feriado.</p>", unsafe_allow_html=True)
+        c_grat, c_fer = st.columns(2)
+        with c_grat:
+            gratificacion = st.number_input(
+                "Gratificación anual de utilidades ($)",
+                min_value=0,
+                max_value=5_000_000,
+                value=0,
+                step=10_000,
+                format="%d",
+                key="gratificacion_input",
+                help="Gratificación legal anual (habitual en mes de balance/abril)"
+            )
+        with c_fer:
+            comision_feriado_manual = st.number_input(
+                "Ajuste manual com. feriado ($)",
+                min_value=0,
+                max_value=5_000_000,
+                value=0,
+                step=10_000,
+                format="%d",
+                key="feriado_manual_input",
+                help="Déjalo en $0 para que el sistema lo calcule automáticamente según tus días de vacaciones"
+            )
+            comision_feriado = comision_feriado_manual if comision_feriado_manual > 0 else None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PASO 6 — Resultado Instantáneo
@@ -599,6 +606,7 @@ if monto_final > 0 and valor_uf > 0 and lista_tramos:
             dias_trabajables=dias_trabajables,
             domingos_festivos=domingos_festivos,
             dias_licencia=dias_licencia,
+            dias_vacaciones=dias_vacaciones,
             anticipo=anticipo,
             prestamo=prestamo,
             gratificacion=gratificacion,
