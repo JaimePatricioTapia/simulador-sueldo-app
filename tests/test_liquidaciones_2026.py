@@ -55,6 +55,7 @@ class TestLiquidaciones2026(unittest.TestCase):
                 "recaudacion_pesos": 51309739,
                 "valor_uf": 41015.0,
                 "anticipo": 180000, "prestamo": 70000, "feriado": 0, "gratificacion": 743789,
+                "dias_trabajables": 22, "domingos_festivos": 4,  # RRHH usó 22/4 (sin descontar Viernes Santo)
                 "esperado": {
                     "sueldo_base": 380000, "ajuste": 159000, "imm": 539000,
                     "comision": 1180124, "sc": 214568, "premio": 100000,
@@ -146,7 +147,9 @@ class TestLiquidaciones2026(unittest.TestCase):
             a = t["anio"]
             imm = obtener_imm(a, m)
             utm = obtener_utm(a, m)
-            dias, fest = c.calcular_dias_mes(a, m)
+            dias_auto, fest_auto = c.calcular_dias_mes(a, m)
+            dias = t.get("dias_trabajables", dias_auto)
+            fest = t.get("domingos_festivos", fest_auto)
 
             res = c.calcular_sueldo(
                 recaudacion_pesos=t["recaudacion_pesos"],

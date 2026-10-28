@@ -413,3 +413,66 @@ def agregar_utm(anio: int, mes: int, valor: int) -> None:
     data = cargar_utm_historica()
     data[clave] = valor
     guardar_utm_historica(data)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Feriados y Días Hábiles — API data.magnet.cl
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_MAGNET_WORKING_DAYS_URL = "https://data.magnet.cl/api/v1/holidays/cl/working-days-count/"
+_MAGNET_HOLIDAYS_URL = "https://data.magnet.cl/api/v1/holidays/cl/"
+_CACHE_DIAS_MES = {}
+
+
+def obtener_dias_mes_magnet(anio: int, mes: int) -> Optional[Tuple[int, int]]:
+    """
+    Consulta la API pública chilena data.magnet.cl para obtener:
+    - Días trabajables (Lunes a Viernes hábiles, excluyendo feriados oficiales)
+    - Domingos y festivos del mes (para la Semana Corrida)
+
+    Returns:
+        (dias_trabajables, domingos_festivos) o None si la API no está disponible.
+    """
+    import calendar
+    clave = f"{anio:04d}-{mes:02d}"
+    if clave in _CACHE_DIAS_MES:
+        return _CACHE_DIAS_MES[clave]
+
+    try:
+        _, last_day = calendar.monthrange(anio, mes)
+        start_str = f"{anio:04d}-{mes:02d}-01"
+        end_str = f"{anio:04d}-{mes:02d}-{last_day:02d}"
+
+        # 1. Consultar días hábiles trabajables (L-V excluyendo feriados de Chile)
+        url_count = f"{_MAGNET_WORKING_DAYS_URL}?start={start_str}&end={end_str}"
+        req_count = urllib.request.Request(url_count, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req_count, timeout=_API_TIMEOUT) as resp:
+            data_count = json.loads(resp.read().decode("utf-8"))
+
+        working_days = data_count.get("workingDays")
+        if working_days is None:
+            return None
+
+        # 2. Consultar feriados del mes para identificar los que caen en día hábil (L-V)
+        url_h = f"{_MAGNET_HOLIDAYS_URL}{anio:04d}/{mes:02d}/"
+        req_h = urllib.request.Request(url_h, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req_h, timeout=_API_TIMEOUT) as resp:
+            data_h = json.loads(resp.read().decode("utf-8"))
+
+        feriados = data_h.get("objects", [])
+        feriados_en_habil = 0
+        for h in feriados:
+            d_obj = date.fromisoformat(h["date"])
+            if d_obj.weekday() < 5:  # 0=Lunes, 4=Viernes
+                feriados_en_habil += 1
+
+        # 3. Contar domingos del mes
+        domingos = sum(1 for d in range(1, last_day + 1) if date(anio, mes, d).weekday() == 6)
+        domingos_festivos = domingos + feriados_en_habil
+
+        resultado = (int(working_days), int(domingos_festivos))
+        _CACHE_DIAS_MES[clave] = resultado
+        return resultado
+    except Exception:
+        return None
+

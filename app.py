@@ -470,7 +470,7 @@ lista_tramos = tramos.obtener_tramos(tabla_id)
 dias_auto, festivos_auto = calcular_dias_mes(anio_seleccionado, mes_seleccionado)
 
 with st.expander("📅 Asistencia, Días Trabajados y Vacaciones"):
-    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Los días hábiles y festivos se calculan automáticamente según el calendario. Solo ajústalos si tomaste vacaciones o licencia.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Días hábiles y festivos sincronizados automáticamente con el calendario oficial de feriados en Chile. Ajústalos si tomaste vacaciones o licencia.</p>", unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         dias_trabajables = st.number_input("Días hábiles mes", min_value=1, max_value=27, value=dias_auto, help="L-V hábiles (sin feriados)")

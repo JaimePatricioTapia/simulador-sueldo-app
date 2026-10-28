@@ -198,14 +198,23 @@ _FERIADOS_FIJOS = [
 ]
 
 
-def calcular_dias_mes(anio: int, mes: int) -> tuple:
+def calcular_dias_mes(anio: int, mes: int, usar_api: bool = True) -> tuple:
     """
     Calcula automáticamente los días trabajables (L-V menos feriados)
     y los domingos + festivos del mes, para Semana Corrida.
     
+    Si usar_api es True, consulta data.magnet.cl para obtener los feriados y días hábiles oficiales.
+    Si la API no responde o está sin conexión, usa el calendario chileno local como fallback.
+    
     Returns:
         (dias_trabajables, domingos_y_festivos)
     """
+    if usar_api:
+        from modules.indicadores import obtener_dias_mes_magnet
+        dias_api = obtener_dias_mes_magnet(anio, mes)
+        if dias_api is not None:
+            return dias_api
+
     _, dias_en_mes = calendar.monthrange(anio, mes)
     
     dias_habiles = 0
