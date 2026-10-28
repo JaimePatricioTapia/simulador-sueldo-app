@@ -12,7 +12,8 @@
         {"desde_uf": 1101, "hasta_uf": 1251, "comision_pct": 2.30, "premio": 100000, "estado": "confirmado"},
         {"desde_uf": 1252, "hasta_uf": 1398, "comision_pct": 2.40, "premio": 120000, "estado": "confirmado"},
         {"desde_uf": 1399, "hasta_uf": 1539, "comision_pct": 2.45, "premio": 130000, "estado": "confirmado"},
-        {"desde_uf": 1540, "hasta_uf": null,  "comision_pct": 2.50, "premio": 140000, "estado": "confirmado"}
+        {"desde_uf": 1540, "hasta_uf": 1680, "comision_pct": 2.50, "premio": 140000, "estado": "confirmado"},
+        {"desde_uf": 1681, "hasta_uf": null,  "comision_pct": 2.50, "premio": 150000, "estado": "confirmado"}
       ]
     }
   }

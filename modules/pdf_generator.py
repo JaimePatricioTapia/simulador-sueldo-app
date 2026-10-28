@@ -74,12 +74,18 @@ def generar_pdf_resumen(resultado: ResultadoCalculo) -> bytes:
     # ─── Haberes ─────────────────────────────────────────────────────────
     _seccion_titulo(pdf, "Haberes")
 
+    _fila(pdf, "Sueldo Base", formato_clp(resultado.sueldo_base))
+    _fila(pdf, "Ajuste Sueldo Base", formato_clp(resultado.ajuste_sueldo_base))
     _fila(pdf, "Ingreso Mínimo Mensual (IMM)", formato_clp(resultado.imm))
     _fila(pdf, f"Comisión por recaudación ({resultado.tramo.comision_pct}%)",
           formato_clp(resultado.comision_recaudacion))
     if resultado.premio > 0:
         _fila(pdf, "Premio del tramo", formato_clp(resultado.premio))
     _fila(pdf, "Semana Corrida", formato_clp(resultado.semana_corrida_monto))
+    if resultado.comision_feriado > 0:
+        _fila(pdf, "Comisión por Feriado", formato_clp(resultado.comision_feriado))
+    if resultado.gratificacion > 0:
+        _fila(pdf, "Gratificación Legal", formato_clp(resultado.gratificacion))
     _fila(pdf, "Asignación Internet (no imponible)", formato_clp(resultado.asignacion_internet))
 
     pdf.set_font("Helvetica", "B", 10)
@@ -94,13 +100,22 @@ def generar_pdf_resumen(resultado: ResultadoCalculo) -> bytes:
     _fila(pdf, f"{d.afp_nombre} ({d.afp_tasa}%)", f"-{formato_clp(d.afp_monto)}")
     _fila(pdf, f"Salud {d.salud_sistema} ({d.salud_tasa}%)", f"-{formato_clp(d.salud_monto)}")
     _fila(pdf, f"Seguro Cesantía ({d.cesantia_tasa}%)", f"-{formato_clp(d.cesantia_monto)}")
-    if d.apv_monto > 0:
-        _fila(pdf, "APV Individual Tributable", f"-{formato_clp(d.apv_monto)}")
+    if d.cuenta_ahorro_monto > 0:
+        _fila(pdf, "Cuenta Ahorro", f"-{formato_clp(d.cuenta_ahorro_monto)}")
     
     _fila(pdf, "Impuesto Único de 2da Categoría", f"-{formato_clp(d.impuesto_unico_monto)}")
 
     pdf.set_font("Helvetica", "B", 10)
-    _fila(pdf, "TOTAL DESCUENTOS", f"-{formato_clp(d.total_descuentos)}", bold=True)
+    _fila(pdf, "TOTAL DESC. LEGALES", f"-{formato_clp(d.total_descuentos)}", bold=True)
+
+    # ─── Otros Descuentos (si aplica) ────────────────────────────────────
+    if resultado.anticipo > 0 or resultado.prestamo > 0:
+        pdf.ln(4)
+        _seccion_titulo(pdf, "Otros Descuentos")
+        if resultado.anticipo > 0:
+            _fila(pdf, "Anticipo", f"-{formato_clp(resultado.anticipo)}")
+        if resultado.prestamo > 0:
+            _fila(pdf, "Préstamo / Otros", f"-{formato_clp(resultado.prestamo)}")
 
     pdf.ln(6)
 
@@ -111,7 +126,7 @@ def generar_pdf_resumen(resultado: ResultadoCalculo) -> bytes:
 
     pdf.set_font("Helvetica", "B", 13)
     pdf.set_text_color(0, 122, 255)
-    pdf.cell(95, 10, "SUELDO LÍQUIDO ESTIMADO", align="L")
+    pdf.cell(95, 10, "ALCANCE LÍQUIDO ESTIMADO", align="L")
     pdf.cell(85, 10, formato_clp(resultado.sueldo_liquido), align="R",
              new_x="LMARGIN", new_y="NEXT")
 
@@ -122,7 +137,6 @@ def generar_pdf_resumen(resultado: ResultadoCalculo) -> bytes:
     pdf.set_text_color(150, 150, 150)
     pdf.multi_cell(0, 4,
         "Este es un cálculo estimativo y no constituye una liquidación de sueldo oficial. "
-        "No incluye anticipos u otros descuentos particulares de la empresa. "
         "Consulta tu liquidación oficial para los montos definitivos."
     )
 

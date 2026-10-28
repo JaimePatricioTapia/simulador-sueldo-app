@@ -9,6 +9,8 @@ Incluye:
 """
 
 import json
+import calendar
+from datetime import date
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
@@ -45,7 +47,7 @@ class DetalleDescuentos:
     salud_monto: int
     cesantia_tasa: float
     cesantia_monto: int
-    apv_monto: int
+    cuenta_ahorro_monto: int
     total_leyes_sociales: int
 
     base_tributable: int
@@ -71,7 +73,9 @@ class ResultadoCalculo:
     # Tramo
     tramo: TramoEncontrado
 
-    # Haberes
+    # Haberes — desglose IMM
+    sueldo_base: int
+    ajuste_sueldo_base: int
     imm: int
     comision_recaudacion: int
     premio: int
@@ -93,6 +97,14 @@ class ResultadoCalculo:
     # Resultado
     sueldo_liquido: int
 
+    # Otros descuentos
+    anticipo: int = 0
+    prestamo: int = 0
+
+    # Haberes adicionales ocasionales (imponibles)
+    gratificacion: int = 0
+    comision_feriado: int = 0
+
     # Escenario alternativo (solo si hay tramos no confirmados)
     escenario_alternativo: Optional["ResultadoCalculo"] = None
 
@@ -109,7 +121,7 @@ def cargar_config_descuentos() -> dict:
             "afp": {"nombre": "AFP Habitat", "tasa_total_pct": 11.27},
             "salud": {"sistema": "Fonasa", "tasa_pct": 7.0},
             "seguro_cesantia": {"tasa_pct": 0.6},
-            "apv": {"monto_fijo": 15000},
+            "cuenta_ahorro": {"monto_fijo": 15000},
             "asignaciones_no_imponibles": {"internet": 15000}
         }
     with open(_DESCUENTOS_FILE, "r", encoding="utf-8") as f:
@@ -162,6 +174,60 @@ def encontrar_tramo(recaudacion_uf: float, tramos: list) -> TramoEncontrado:
         )
 
     raise ValueError("No hay tramos definidos en la tabla de comisiones")
+
+
+# ─── Feriados legales de Chile (mes, día) ─────────────────────────────────────
+_FERIADOS_FIJOS = [
+    (1, 1),   # Año Nuevo
+    (5, 1),   # Día del Trabajo
+    (5, 21),  # Día de las Glorias Navales
+    (6, 20),  # Día Nacional de los Pueblos Indígenas (varía, aprox)
+    (6, 29),  # San Pedro y San Pablo
+    (7, 16),  # Virgen del Carmen
+    (8, 15),  # Asunción de la Virgen
+    (9, 18),  # Fiestas Patrias
+    (9, 19),  # Glorias del Ejército
+    (10, 12), # Encuentro de Dos Mundos (puede moverse)
+    (10, 31), # Día de las Iglesias Evangélicas
+    (11, 1),  # Todos los Santos
+    (12, 8),  # Inmaculada Concepción
+    (12, 25), # Navidad
+]
+
+
+def calcular_dias_mes(anio: int, mes: int) -> tuple:
+    """
+    Calcula automáticamente los días trabajables (L-V menos feriados)
+    y los domingos + festivos del mes, para Semana Corrida.
+    
+    Returns:
+        (dias_trabajables, domingos_y_festivos)
+    """
+    _, dias_en_mes = calendar.monthrange(anio, mes)
+    
+    dias_habiles = 0
+    domingos = 0
+    feriados_en_habil = 0
+    
+    feriados_del_mes = {d for m, d in _FERIADOS_FIJOS if m == mes}
+    
+    for dia in range(1, dias_en_mes + 1):
+        d = date(anio, mes, dia)
+        dow = d.weekday()  # 0=Lun, 6=Dom
+        
+        if dow == 6:  # Domingo
+            domingos += 1
+        elif dow < 5:  # Lunes a Viernes
+            if dia in feriados_del_mes:
+                feriados_en_habil += 1
+            else:
+                dias_habiles += 1
+        # Sábados: no se cuentan como trabajables ni como festivos
+    
+    dias_trabajables = dias_habiles
+    domingos_festivos = domingos + feriados_en_habil
+    
+    return dias_trabajables, domingos_festivos
 
 
 def calcular_semana_corrida(comision: int, dias_trabajables: int, domingos_festivos: int, dias_licencia: int) -> int:
@@ -231,6 +297,9 @@ def calcular_impuesto_unico(base_tributable: int, valor_utm: float) -> int:
 def calcular_descuentos(total_imponible: int, valor_utm: float, config: dict = None) -> DetalleDescuentos:
     """
     Calcula los descuentos legales e impuestos sobre el total imponible.
+    
+    NOTA: La Cuenta de Ahorro NO reduce la base tributable (verificado
+    contra liquidación real de septiembre 2026).
     """
     if config is None:
         config = cargar_config_descuentos()
@@ -238,7 +307,7 @@ def calcular_descuentos(total_imponible: int, valor_utm: float, config: dict = N
     afp_tasa = config["afp"]["tasa_total_pct"]
     salud_tasa = config["salud"]["tasa_pct"]
     cesantia_tasa = config["seguro_cesantia"]["tasa_pct"]
-    apv_monto = config.get("apv", {}).get("monto_fijo", 0)
+    cuenta_ahorro_monto = config.get("cuenta_ahorro", config.get("apv", {})).get("monto_fijo", 0)
 
     afp_monto = round(total_imponible * afp_tasa / 100)
     salud_monto = round(total_imponible * salud_tasa / 100)
@@ -246,12 +315,13 @@ def calcular_descuentos(total_imponible: int, valor_utm: float, config: dict = N
 
     total_leyes_sociales = afp_monto + salud_monto + cesantia_monto
     
-    # La base tributable es el Imponible MENOS las leyes sociales (y el APV si es régimen B, asumiremos APV rebaja base tributable)
-    base_tributable = max(0, total_imponible - total_leyes_sociales - apv_monto)
+    # Base tributable = Imponible - AFP - Fonasa - Cesantía
+    # La Cuenta de Ahorro NO reduce la base tributable
+    base_tributable = max(0, total_imponible - total_leyes_sociales)
     
     impuesto_unico = calcular_impuesto_unico(base_tributable, valor_utm)
 
-    total_descuentos = total_leyes_sociales + apv_monto + impuesto_unico
+    total_descuentos = total_leyes_sociales + cuenta_ahorro_monto + impuesto_unico
 
     return DetalleDescuentos(
         afp_nombre=config["afp"]["nombre"],
@@ -262,7 +332,7 @@ def calcular_descuentos(total_imponible: int, valor_utm: float, config: dict = N
         salud_monto=salud_monto,
         cesantia_tasa=cesantia_tasa,
         cesantia_monto=cesantia_monto,
-        apv_monto=apv_monto,
+        cuenta_ahorro_monto=cuenta_ahorro_monto,
         total_leyes_sociales=total_leyes_sociales,
         base_tributable=base_tributable,
         impuesto_unico_monto=impuesto_unico,
@@ -282,6 +352,11 @@ def calcular_sueldo(
     dias_trabajables: int = 20,
     domingos_festivos: int = 4,
     dias_licencia: int = 0,
+    anticipo: int = 0,
+    prestamo: int = 0,
+    gratificacion: int = 0,
+    comision_feriado: int = 0,
+    sueldo_base: int = 380000,
     config_descuentos: dict = None
 ) -> ResultadoCalculo:
     """
@@ -306,14 +381,18 @@ def calcular_sueldo(
 
     asig_internet = config_descuentos.get("asignaciones_no_imponibles", {}).get("internet", 0)
 
-    # Totales (Semana corrida es imponible)
-    total_imponible = imm + comision + premio + semana_corrida
+    # Desglose IMM: sueldo base + ajuste
+    ajuste_sueldo_base = imm - sueldo_base
+
+    # Totales (Semana corrida, gratificación y feriado son imponibles)
+    total_imponible = imm + comision + premio + semana_corrida + gratificacion + comision_feriado
     total_haberes = total_imponible + asig_internet
 
     # Descuentos legales e impuestos
     descuentos = calcular_descuentos(total_imponible, valor_utm, config_descuentos)
 
-    sueldo_liquido = total_haberes - descuentos.total_descuentos
+    # Sueldo líquido = Total Haberes - Desc. Legales - Anticipo - Préstamo
+    sueldo_liquido = total_haberes - descuentos.total_descuentos - anticipo - prestamo
 
     resultado = ResultadoCalculo(
         recaudacion_pesos=recaudacion_pesos,
@@ -324,6 +403,8 @@ def calcular_sueldo(
         tabla_usada=tabla_nombre,
         recaudacion_uf=recaudacion_uf,
         tramo=tramo,
+        sueldo_base=sueldo_base,
+        ajuste_sueldo_base=ajuste_sueldo_base,
         imm=imm,
         comision_recaudacion=comision,
         premio=premio,
@@ -338,6 +419,10 @@ def calcular_sueldo(
         total_imponible=total_imponible,
         total_haberes=total_haberes,
         descuentos=descuentos,
+        anticipo=anticipo,
+        prestamo=prestamo,
+        gratificacion=gratificacion,
+        comision_feriado=comision_feriado,
         sueldo_liquido=sueldo_liquido
     )
 
@@ -356,6 +441,11 @@ def calcular_sueldo(
                 dias_trabajables=dias_trabajables,
                 domingos_festivos=domingos_festivos,
                 dias_licencia=dias_licencia,
+                anticipo=anticipo,
+                prestamo=prestamo,
+                gratificacion=gratificacion,
+                comision_feriado=comision_feriado,
+                sueldo_base=sueldo_base,
                 config_descuentos=config_descuentos
             )
 

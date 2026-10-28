@@ -320,11 +320,11 @@ with tab_descuentos:
                                      min_value=0.0, max_value=5.0, step=0.1,
                                      format="%.1f", key="desc_cesantia_tasa")
 
-    # ─── APV ─────────────────────────────────────────────────────────────
-    st.markdown("**APV Individual Tributable**")
-    apv_monto = st.number_input("Monto fijo mensual ($)", value=config.get("apv", {}).get("monto_fijo", 0),
+    # ─── Cuenta Ahorro ────────────────────────────────────────────────────
+    st.markdown("**Cuenta Ahorro**")
+    cuenta_ahorro_monto = st.number_input("Monto fijo mensual ($)", value=config.get("cuenta_ahorro", config.get("apv", {})).get("monto_fijo", 0),
                                  min_value=0, max_value=1000000, step=5000,
-                                 key="desc_apv_monto")
+                                 key="desc_cuenta_ahorro_monto")
 
     # ─── Internet ────────────────────────────────────────────────────────
     st.markdown("**Asignación Internet (no imponible)**")
@@ -340,7 +340,7 @@ with tab_descuentos:
             "afp": {"nombre": afp_nombre, "tasa_total_pct": afp_tasa},
             "salud": {"sistema": salud_sistema, "tasa_pct": salud_tasa},
             "seguro_cesantia": {"tasa_pct": cesantia_tasa},
-            "apv": {"monto_fijo": apv_monto},
+            "cuenta_ahorro": {"monto_fijo": cuenta_ahorro_monto},
             "asignaciones_no_imponibles": {"internet": internet}
         }
         desc_file = Path(__file__).parent.parent / "data" / "descuentos_config.json"

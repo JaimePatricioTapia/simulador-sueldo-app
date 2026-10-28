@@ -11,7 +11,7 @@ Filosofía Apple:
 import streamlit as st
 from datetime import date
 from modules import calculos, tramos, indicadores
-from modules.calculos import formato_clp, formato_uf, ResultadoCalculo
+from modules.calculos import formato_clp, formato_uf, ResultadoCalculo, calcular_dias_mes
 from modules.pdf_generator import generar_pdf_resumen
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -462,15 +462,19 @@ lista_tramos = tramos.obtener_tramos(tabla_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PASO 3 — Semana Corrida
+# PASO 3 — Semana Corrida (días auto-calculados según mes/año)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# Calcular días automáticamente según el mes seleccionado
+dias_auto, festivos_auto = calcular_dias_mes(anio_seleccionado, mes_seleccionado)
+
 with st.expander("📅 Días trabajados (Semana Corrida)"):
-    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Ajusta los días del mes para el cálculo de tu semana corrida.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Los días se calculan automáticamente según el mes. Ajústalos si es necesario.</p>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
-        dias_trabajables = st.number_input("Días trabajables", min_value=1, max_value=27, value=20, help="Lunes a viernes/sábado")
+        dias_trabajables = st.number_input("Días trabajables", min_value=1, max_value=27, value=dias_auto, help="L-V hábiles (sin feriados)")
     with c2:
-        domingos_festivos = st.number_input("Domingos y festivos", min_value=0, max_value=10, value=4, help="Días de descanso irrenunciable")
+        domingos_festivos = st.number_input("Domingos y festivos", min_value=0, max_value=12, value=festivos_auto, help="Domingos + feriados en día hábil")
     with c3:
         dias_licencia = st.number_input("Días de licencia", min_value=0, max_value=31, value=0, help="Restan a los días trabajables")
 
@@ -525,7 +529,60 @@ if monto_final > 100_000_000:
     """)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PASO 5 — Resultado Instantáneo
+# PASO 5 — Otros Descuentos y Haberes Ocasionales (opcional)
+# ═══════════════════════════════════════════════════════════════════════════════
+with st.expander("💵 Anticipos, Préstamos y Haberes Adicionales (opcional)"):
+    st.markdown("<p style='font-size:0.85rem; color:#6E6E73;'>Ingresa anticipos o préstamos (descuentos), y haberes ocasionales como vacaciones o gratificaciones.</p>", unsafe_allow_html=True)
+    c_ant, c_pres = st.columns(2)
+    with c_ant:
+        anticipo = st.number_input(
+            "Anticipo ($)",
+            min_value=0,
+            max_value=5_000_000,
+            value=0,
+            step=10_000,
+            format="%d",
+            key="anticipo_input",
+            help="Descuento que reduce el alcance líquido final"
+        )
+    with c_pres:
+        prestamo = st.number_input(
+            "Préstamo / Otros desc. ($)",
+            min_value=0,
+            max_value=5_000_000,
+            value=0,
+            step=5_000,
+            format="%d",
+            key="prestamo_input",
+            help="Descuento adicional (ej: cuota préstamo) que reduce el líquido"
+        )
+
+    c_fer, c_grat = st.columns(2)
+    with c_fer:
+        comision_feriado = st.number_input(
+            "Comisión Feriado / Vacaciones ($)",
+            min_value=0,
+            max_value=5_000_000,
+            value=0,
+            step=10_000,
+            format="%d",
+            key="feriado_input",
+            help="Remuneración de comisiones durante feriado legal (imponible)"
+        )
+    with c_grat:
+        gratificacion = st.number_input(
+            "Gratificación legal ($)",
+            min_value=0,
+            max_value=5_000_000,
+            value=0,
+            step=10_000,
+            format="%d",
+            key="gratificacion_input",
+            help="Gratificación legal anual o semestral (imponible)"
+        )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PASO 6 — Resultado Instantáneo
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if monto_final > 0 and valor_uf > 0 and lista_tramos:
@@ -541,7 +598,11 @@ if monto_final > 0 and valor_uf > 0 and lista_tramos:
             anio=anio_seleccionado,
             dias_trabajables=dias_trabajables,
             domingos_festivos=domingos_festivos,
-            dias_licencia=dias_licencia
+            dias_licencia=dias_licencia,
+            anticipo=anticipo,
+            prestamo=prestamo,
+            gratificacion=gratificacion,
+            comision_feriado=comision_feriado
         )
 
         # ─── ¿Hay escenario dual? (tramos no confirmados) ────────────────
@@ -598,8 +659,15 @@ if monto_final > 0 and valor_uf > 0 and lista_tramos:
             <div style="padding: 0.5rem 0;">
                 <div class="detail-section-title">Haberes</div>
                 <div class="detail-row">
-                    <span class="detail-label">Ingreso Mínimo Mensual (IMM)</span>
-                    <span class="detail-value">{formato_clp(resultado.imm)}</span>
+                    <span class="detail-label">Sueldo Base</span>
+                    <span class="detail-value">{formato_clp(resultado.sueldo_base)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Ajuste Sueldo Base</span>
+                    <span class="detail-value">{formato_clp(resultado.ajuste_sueldo_base)}</span>
+                </div>
+                <div class="detail-row indent">
+                    <span>Ingreso Mínimo Mensual (IMM): {formato_clp(resultado.imm)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Comisión por recaudación ({resultado.tramo.comision_pct}%)</span>
@@ -613,6 +681,8 @@ if monto_final > 0 and valor_uf > 0 and lista_tramos:
                 <div class="detail-row indent">
                     <span>(Comisión ÷ {resultado.dias_efectivos_trabajables} días) × {resultado.domingos_festivos} festivos</span>
                 </div>
+                {"<div class='detail-row'><span class='detail-label'>Comisión por Feriado / Vacaciones</span><span class='detail-value'>" + formato_clp(resultado.comision_feriado) + "</span></div>" if resultado.comision_feriado > 0 else ""}
+                {"<div class='detail-row'><span class='detail-label'>Gratificación Legal</span><span class='detail-value'>" + formato_clp(resultado.gratificacion) + "</span></div>" if resultado.gratificacion > 0 else ""}
                 <div class="detail-row">
                     <span class="detail-label">Asignación Internet (no imponible)</span>
                     <span class="detail-value">{formato_clp(resultado.asignacion_internet)}</span>
@@ -635,18 +705,27 @@ if monto_final > 0 and valor_uf > 0 and lista_tramos:
                     <span class="detail-label">Seguro Cesantía ({d.cesantia_tasa}%)</span>
                     <span class="detail-value">-{formato_clp(d.cesantia_monto)}</span>
                 </div>
-                {"<div class='detail-row'><span class='detail-label'>APV Individual</span><span class='detail-value'>-" + formato_clp(d.apv_monto) + "</span></div>" if d.apv_monto > 0 else ""}
+                {"<div class='detail-row'><span class='detail-label'>Cuenta Ahorro</span><span class='detail-value'>-" + formato_clp(d.cuenta_ahorro_monto) + "</span></div>" if d.cuenta_ahorro_monto > 0 else ""}
                 <div class="detail-row" style="margin-top:0.3rem;">
                     <span class="detail-label">Impuesto Único de 2da Categoría</span>
                     <span class="detail-value" style="color: #FF3B30;">-{formato_clp(d.impuesto_unico_monto)}</span>
                 </div>
                 <div class="detail-row indent">
-                    <span>Base tributable: {formato_clp(d.base_tributable)} ({round(d.base_tributable/resultado.valor_utm, 2)} UTM)</span>
+                    <span>Base tributable: {formato_clp(d.base_tributable)} ({round(d.base_tributable/resultado.valor_utm, 2) if resultado.valor_utm > 0 else 0} UTM)</span>
                 </div>
                 <div class="detail-row" style="background:#FFF0F0; border-radius:8px; padding:0.5rem; margin-top:0.3rem;">
-                    <span class="detail-label" style="font-weight:600;">Total Descuentos</span>
+                    <span class="detail-label" style="font-weight:600;">Total Desc. Legales</span>
                     <span class="detail-value" style="color: #FF3B30; font-weight:700;">-{formato_clp(d.total_descuentos)}</span>
                 </div>
+                {f'''<div class="detail-section-title" style="margin-top: 1.2rem;">Otros Descuentos</div>
+                <div class="detail-row">
+                    <span class="detail-label">Anticipo</span>
+                    <span class="detail-value" style="color: #FF9500;">-{formato_clp(resultado.anticipo)}</span>
+                </div>''' if resultado.anticipo > 0 else ""}
+                {f'''<div class="detail-row">
+                    <span class="detail-label">Préstamo / Otros</span>
+                    <span class="detail-value" style="color: #FF9500;">-{formato_clp(resultado.prestamo)}</span>
+                </div>''' if resultado.prestamo > 0 else ""}
             </div>
             """)
 

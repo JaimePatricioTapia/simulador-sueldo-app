@@ -16,9 +16,9 @@
     "habilitado": true,
     "nota": "Se calcula según tabla de impuesto único de segunda categoría vigente"
   },
-  "apv": {
+  "cuenta_ahorro": {
     "monto_fijo": 15000,
-    "nota": "APV individual tributable — monto fijo mensual"
+    "nota": "Cuenta de ahorro — monto fijo mensual. NO reduce la base tributable."
   },
   "asignaciones_no_imponibles": {
     "internet": 15000
